@@ -2430,7 +2430,7 @@ failed:
 	snprintf(buf, buf_len, "(unknown)");
 }
 
-static int print_advertising_devices(int dd, uint8_t filter_type)
+static int print_advertising_devices(int dd, uint8_t filter_type, uint8_t advdata)
 {
 	unsigned char buf[HCI_MAX_EVENT_SIZE], *ptr;
 	struct hci_filter nf, of;
@@ -2493,7 +2493,14 @@ static int print_advertising_devices(int dd, uint8_t filter_type)
 			eir_parse_name(info->data, info->length,
 							name, sizeof(name) - 1);
 
-			printf("%s %s\n", addr, name);
+			printf("%s %s", addr, name);
+			if (advdata) {
+				uint8_t i;
+				printf(" advertising data:");
+				for (i=0; i < info->length; i++)
+				    printf(" %02x", info->data[i]);
+			}
+			printf("\n");
 		}
 	}
 
@@ -2513,6 +2520,7 @@ static struct option lescan_options[] = {
 	{ "whitelist",	0, 0, 'w' },
 	{ "discovery",	1, 0, 'd' },
 	{ "duplicates",	0, 0, 'D' },
+	{ "advdata",	0, 0, 'a' },
 	{ 0, 0, 0, 0 }
 };
 
@@ -2523,7 +2531,8 @@ static const char *lescan_help =
 	"\tlescan [--whitelist] scan for address in the whitelist only\n"
 	"\tlescan [--discovery=g|l] enable general or limited discovery"
 		"procedure\n"
-	"\tlescan [--duplicates] don't filter duplicates\n";
+	"\tlescan [--duplicates] don't filter duplicates\n"
+	"\tlescan [--advdata] print hexdump of advertising data\n";
 
 static void cmd_lescan(int dev_id, int argc, char **argv)
 {
@@ -2535,6 +2544,7 @@ static void cmd_lescan(int dev_id, int argc, char **argv)
 	uint16_t interval = htobs(0x0010);
 	uint16_t window = htobs(0x0010);
 	uint8_t filter_dup = 1;
+	uint8_t advdata = 0;
 
 	for_each_opt(opt, lescan_options, NULL) {
 		switch (opt) {
@@ -2546,6 +2556,9 @@ static void cmd_lescan(int dev_id, int argc, char **argv)
 			break;
 		case 'w':
 			filter_policy = 0x01; /* Whitelist */
+			break;
+		case 'a':
+			advdata = 0x01; /* Print advertising data */
 			break;
 		case 'd':
 			filter_type = optarg[0];
@@ -2591,7 +2604,7 @@ static void cmd_lescan(int dev_id, int argc, char **argv)
 
 	printf("LE Scan ...\n");
 
-	err = print_advertising_devices(dd, filter_type);
+	err = print_advertising_devices(dd, filter_type, advdata);
 	if (err < 0) {
 		perror("Could not receive advertising events");
 		exit(1);
